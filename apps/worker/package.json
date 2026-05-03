@@ -1,0 +1,20 @@
+{
+  "name": "@repo/worker",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "dependencies": {
+    "@repo/github": "*",
+    "@repo/queue": "*",
+    "@repo/db": "*",
+    "@repo/groq": "*",
+    "bullmq": "^5.76.4",
+    "dotenv": "^17.4.2"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}

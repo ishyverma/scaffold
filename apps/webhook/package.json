@@ -1,0 +1,21 @@
+{
+  "name": "@repo/webhook",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "hono": "^4.12.16",
+    "zod": "^4.4.1",
+    "@repo/db": "*",
+    "@repo/queue": "*"
+  },
+  "scripts": {
+    "dev": "bun run --hot src/index.ts"
+  }
+}
