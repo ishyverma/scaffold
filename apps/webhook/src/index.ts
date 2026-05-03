@@ -9,6 +9,7 @@ import {
   reviews,
   webhookEvents,
 } from "@repo/db/schema";
+import { verifyGithubSignature } from "./lib/verify-github-webhook";
 
 const app = new Hono();
 
@@ -18,10 +19,19 @@ app.get("/", (c) => {
 
 app.post("/webhook", async (c) => {
     try {
+      // raw body just for HMAC verification
+      const rawBody = await c.req.arrayBuffer();
       const payload = await c.req.json()
   
       const event = c.req.header("X-github-event")
       const deliveryId = c.req.header("x-github-delivery")
+      const signature = c.req.header("x-hub-signature-256");
+
+      const isValid = await verifyGithubSignature(rawBody, signature);
+      if (!isValid) {
+        console.warn("Webhook signature verification failed");
+        return c.json({ error: "Unauthorized" }, 401);
+      }
   
       // -------------------------
       // 0. VALIDATE HEADERS
