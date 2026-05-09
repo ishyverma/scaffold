@@ -1,159 +1,194 @@
-# Turborepo starter
+# Scaffold - AI-Powered PR Review System
 
-This Turborepo starter is maintained by the Turborepo core team.
+Scaffold is an AI-powered GitHub Pull Request review system that automatically analyzes PRs and posts inline code review comments using Groq AI.
 
-## Using this example
+## Project Structure
 
-Run the following command:
+This is a Turborepo monorepo containing multiple apps and shared packages.
 
-```sh
-npx create-turbo@latest
+## Directory Structure
+
+```
+scaffold/
+├── apps/
+│   ├── web/           # Next.js frontend application
+│   ├── webhook/       # Hono server for GitHub webhooks
+│   └── worker/        # BullMQ worker for PR analysis
+├── packages/
+│   ├── db/            # Drizzle ORM with PostgreSQL
+│   ├── queue/         # BullMQ queue with Redis
+│   ├── groq/          # Groq AI SDK for PR analysis
+│   ├── github/        # GitHub API integration with Octokit
+│   ├── ui/            # Shared React UI components
+│   ├── eslint-config/ # ESLint configurations
+│   └── typescript-config/ # TypeScript configurations
 ```
 
-## What's inside?
+## Apps
 
-This Turborepo includes the following packages/apps:
+### Web
+Next.js 16 frontend application running on port 3000. Currently serves as a placeholder landing page.
 
-### Apps and Packages
+### Webhook
+Hono-based HTTP server running on port 3001 that receives GitHub webhooks.
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
+### Worker
+BullMQ worker that processes PR analysis jobs from the queue.
 
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
+## Packages
 
-### Utilities
+### @repo/db
+Database layer using Drizzle ORM with PostgreSQL. Contains schema for:
+- repositories
+- webhook_events
+- pull_requests
+- reviews
+- review_comments
+- jobs
 
-This Turborepo has some additional tools already setup for you:
+### @repo/queue
+BullMQ queue implementation with Redis. Manages PR analysis job processing.
 
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
+### @repo/groq
+Groq AI SDK integration for analyzing PR diffs and generating review comments.
 
-### Build
+### @repo/github
+GitHub API integration using Octokit and @octokit/auth-app for authenticated requests.
 
-To build all apps and packages, run the following command:
+### @repo/ui
+Shared React UI components (Button, Card, Code) used by the web app.
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+## Flow
 
-```sh
-cd my-turborepo
-turbo build
+### 1. Webhook Reception
+
+GitHub sends webhooks to the webhook server when events occur:
+- pull_request (opened, synchronize, reopened)
+- installation (created, deleted)
+- installation_repositories (added, removed)
+
+### 2. Event Validation
+
+The webhook server validates:
+- HMAC-SHA256 signature verification
+- Idempotency check (duplicate delivery detection)
+
+### 3. Repository Resolution
+
+When a webhook is received, the repository is created or updated in the database with:
+- GitHub repository ID
+- Owner and name
+- Installation ID (for GitHub App authentication)
+- Active status
+
+### 4. Webhook Event Logging
+
+Every webhook delivery is logged in the webhook_events table with:
+- Delivery ID (for idempotency)
+- Event type
+- Action
+- Repository reference
+- Processed timestamp
+
+### 5. Pull Request Event Handling
+
+For pull_request events:
+- Upserts the PR record in the database
+- Creates a new review record with pending status
+- Enqueues a job to the BullMQ queue
+
+### 6. Job Processing
+
+The worker picks up jobs and:
+- Marks the review as "processing"
+- Fetches the PR diff and file list from GitHub
+- Sends the diff to Groq AI for analysis
+- Maps AI-generated comments to actual diff line numbers
+- Posts the review back to GitHub with inline comments
+- Stores the comments in the database
+- Marks the review as "completed"
+
+### 7. GitHub Integration
+
+The GitHub package handles:
+- App authentication using private key
+- Installation token caching
+- Fetching PR diffs and files
+- Posting reviews with inline comments
+
+## System Architecture
+
+[SPACE RESERVED FOR SYSTEM ARCHITECTURE DIAGRAM]
+
+## Technology Stack
+
+- **Runtime**: Bun
+- **Framework**: Next.js 16, Hono
+- **Database**: PostgreSQL with Drizzle ORM
+- **Queue**: BullMQ with Redis
+- **AI**: Groq (Llama 3.1 8B)
+- **GitHub**: Octokit with GitHub App authentication
+- **UI**: React 19
+- **Build**: Turborepo
+
+## Getting Started
+
+### Prerequisites
+
+- PostgreSQL
+- Redis
+- Bun
+- GitHub App credentials
+
+### Environment Variables
+
+Create a .env file with:
+
+```
+DATABASE_URL=postgresql://postgres:password@localhost:5432/postgres
+REDIS_URL=redis://localhost:6379
+GROQ_API_KEY=your_groq_api_key
+GITHUB_WEBHOOK_SECRET=your_webhook_secret
+GITHUB_APP_ID=your_app_id
+GITHUB_PRIVATE_KEY=your_base64_encoded_private_key
 ```
 
-Without global `turbo`, use your package manager:
+### Installation
 
-```sh
-cd my-turborepo
-npx turbo build
-bun dlx turbo build
-bun exec turbo build
+```bash
+bun install
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+### Database Setup
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo build --filter=docs
+```bash
+bun --filter @repo/db db:push
 ```
 
-Without global `turbo`:
+### Running Development
 
-```sh
-npx turbo build --filter=docs
-bun exec turbo build --filter=docs
-bun exec turbo build --filter=docs
+Start all apps:
+```bash
+bun run dev
 ```
 
-### Develop
-
-To develop all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo dev
+Start individual apps:
+```bash
+bun --filter web dev      # Next.js frontend on port 3000
+bun --filter @repo/webhook dev  # Webhook server on port 3001
+bun --filter @repo/worker dev   # Worker (requires Redis)
 ```
 
-Without global `turbo`, use your package manager:
+### Building
 
-```sh
-cd my-turborepo
-npx turbo dev
-bun exec turbo dev
-bun exec turbo dev
+```bash
+bun run build
 ```
 
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+## Available Scripts
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo dev --filter=web
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo dev --filter=web
-bun exec turbo dev --filter=web
-bun exec turbo dev --filter=web
-```
-
-### Remote Caching
-
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo login
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo login
-bun exec turbo login
-bun exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo link
-bun exec turbo link
-bun exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+- `bun run dev` - Start all apps in development mode
+- `bun run build` - Build all apps and packages
+- `bun run lint` - Lint all apps and packages
+- `bun run check-types` - Type check all apps and packages
+- `bun run format` - Format code with Prettier
