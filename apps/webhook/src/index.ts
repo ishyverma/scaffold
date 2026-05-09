@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-
+// DATABASE_SECRET=mysecretdatabasesecret
 import { prAnalysisQueue } from "@repo/queue";
 import { db, eq, inArray } from "@repo/db";
 import {
@@ -16,7 +16,7 @@ const app = new Hono();
 app.get("/", (c) => {
   return c.text("GET /");
 });
-
+// phone number - +91 1234567898
 app.post("/webhook", async (c) => {
     try {
       // raw body just for HMAC verification
