@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-
+// DATABASE_SECRET=mysecretdatabase
 import { prAnalysisQueue } from "@repo/queue";
 import { db, eq, inArray } from "@repo/db";
 import {
